@@ -2,13 +2,14 @@ import models._
 import cats._
 import cats.implicits._
 import cats.effect._
-import cats.effect.std._
-import scala.concurrent.duration.FiniteDuration
+import cats.effect.std.Semaphore
 import concurrent.duration.DurationInt
+import org.typelevel.log4cats.Logger
+import scala.concurrent.duration.FiniteDuration
 import scala.collection.immutable._
 
 object Program:
-  def program[F[_]: Temporal: Console: Parallel]: F[Unit] = {
+  def program[F[_]: Temporal: Parallel](logger: Logger[F]): F[Unit] = {
     val forks = Vector(
       Fork(1, ForkState.Available),
       Fork(2, ForkState.Available),
@@ -32,8 +33,8 @@ object Program:
     for
       semaphores <- semaphoresF
       forkAlgebra = ForkAlgebraInterpreter(semaphores)
-      philosopherAlgebra = PhilosopherAlgebraInterpreter(forkAlgebra, timeout)
-      _ <- Console[F].println(s"--- Philosophers begin to dine ---")
+      philosopherAlgebra = PhilosopherAlgebraInterpreter(forkAlgebra, logger, timeout)
+      _ <- logger.info(s"--- Philosophers begin to dine ---")
       _ <- philosophers.parTraverse(p => philosopherAlgebra.live(p))
     yield Applicative[F].unit
 

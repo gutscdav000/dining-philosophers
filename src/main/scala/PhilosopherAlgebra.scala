@@ -2,9 +2,9 @@ import models._
 import cats._
 import cats.implicits._
 import cats.effect._
-import cats.effect.std.Console
-import scala.concurrent.duration.FiniteDuration
 import concurrent.duration.DurationInt
+import org.typelevel.log4cats.Logger
+import scala.concurrent.duration.FiniteDuration
 
 trait PhilosopherAlgebra[F[_]]:
   def doesPonder(philosopher: Philosopher): F[Philosopher]
@@ -14,11 +14,14 @@ trait PhilosopherAlgebra[F[_]]:
   def live(philosopher: Philosopher): F[Unit]
 
 object PhilosopherAlgebraInterpreter:
-  def apply[F[_]: Temporal: Console](forkAlg: ForkAlgebra[F], timeout: FiniteDuration) =
+  def apply[F[_]: Temporal](
+      forkAlg: ForkAlgebra[F],
+      logger: Logger[F],
+      timeout: FiniteDuration) =
     new PhilosopherAlgebra[F]:
       override def doesPonder(philosopher: Philosopher): F[Philosopher] =
         Temporal[F].sleep(timeout) >>
-          Console[F].println(s"Philosopher ${philosopher.identifier} is Hungry") >>
+          logger.info(s"Philosopher ${philosopher.identifier} is Hungry") >>
           philosopher.withStateOfBeing(StateOfBeing.Hungry).pure[F]
 
       override def canEat(philosopher: Philosopher): F[Boolean] =
@@ -28,18 +31,17 @@ object PhilosopherAlgebraInterpreter:
             case ForkState.InUse => false.pure[F]
             case ForkState.Available => true.pure[F]
           }
-          .flatTap(b =>
-            Console[F].println(s"Philosopher ${philosopher.identifier} can eat: $b"))
+          .flatTap(b => logger.info(s"Philosopher ${philosopher.identifier} can eat: $b"))
 
       override def doesEat(philosopher: Philosopher): F[Philosopher] =
-        Console[F].println(s"Philosopher ${philosopher.identifier} aquiring forks?") >>
+        logger.info(s"Philosopher ${philosopher.identifier} aquiring forks?") >>
           forkAlg.aquireForks(philosopher.forks) >>
-          Console[F].println(s"Philosopher ${philosopher.identifier} is Eating") >>
+          logger.info(s"Philosopher ${philosopher.identifier} is Eating") >>
           Temporal[F].sleep(timeout) >>
           philosopher.withStateOfBeing(StateOfBeing.Eating).pure[F]
 
       override def getsFull(philosopher: Philosopher): F[Philosopher] =
-        Console[F].println(s"Philosopher ${philosopher.identifier} releases forks?") >>
+        logger.info(s"Philosopher ${philosopher.identifier} releases forks?") >>
           forkAlg.releaseForks(philosopher.forks) >>
           philosopher.withStateOfBeing(StateOfBeing.Thinking).pure[F]
 
