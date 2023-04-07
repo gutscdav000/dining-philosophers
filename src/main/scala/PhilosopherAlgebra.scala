@@ -6,7 +6,6 @@ import cats.effect.std.Console
 import scala.concurrent.duration.FiniteDuration
 import concurrent.duration.DurationInt
 
-
 trait PhilosopherAlgebra[F[_]]:
   def doesPonder(philosopher: Philosopher): F[Philosopher]
   def canEat(philosopher: Philosopher): F[Boolean]
@@ -23,21 +22,25 @@ object PhilosopherAlgebraInterpreter:
           philosopher.withStateOfBeing(StateOfBeing.Hungry).pure[F]
 
       override def canEat(philosopher: Philosopher): F[Boolean] =
-        forkAlg.forksAvailable(philosopher.forks).flatMap {
-          case ForkState.InUse => false.pure[F]
-          case ForkState.Available => true.pure[F]
-        }.flatTap(b => Console[F].println(s"Philosopher ${philosopher.identifier} can eat: $b"))
+        forkAlg
+          .forksAvailable(philosopher.forks)
+          .flatMap {
+            case ForkState.InUse => false.pure[F]
+            case ForkState.Available => true.pure[F]
+          }
+          .flatTap(b =>
+            Console[F].println(s"Philosopher ${philosopher.identifier} can eat: $b"))
 
       override def doesEat(philosopher: Philosopher): F[Philosopher] =
         Console[F].println(s"Philosopher ${philosopher.identifier} aquiring forks?") >>
-        forkAlg.aquireForks(philosopher.forks) >>
+          forkAlg.aquireForks(philosopher.forks) >>
           Console[F].println(s"Philosopher ${philosopher.identifier} is Eating") >>
           Temporal[F].sleep(timeout) >>
           philosopher.withStateOfBeing(StateOfBeing.Eating).pure[F]
 
       override def getsFull(philosopher: Philosopher): F[Philosopher] =
         Console[F].println(s"Philosopher ${philosopher.identifier} releases forks?") >>
-        forkAlg.releaseForks(philosopher.forks) >>
+          forkAlg.releaseForks(philosopher.forks) >>
           philosopher.withStateOfBeing(StateOfBeing.Thinking).pure[F]
 
       override def live(philosopher: Philosopher): F[Unit] =

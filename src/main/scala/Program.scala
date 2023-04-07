@@ -8,7 +8,7 @@ import concurrent.duration.DurationInt
 import scala.collection.immutable._
 
 object Program:
-  def program[F[_]: Temporal: Console: Parallel](msg: String): F[Unit] = {
+  def program[F[_]: Temporal: Console: Parallel]: F[Unit] = {
     val forks = Vector(
       Fork(1, ForkState.Available),
       Fork(2, ForkState.Available),
@@ -31,11 +31,10 @@ object Program:
 
     for
       semaphores <- semaphoresF
-      // ref <- Ref[F].of(State) /// ???
       forkAlgebra = ForkAlgebraInterpreter(semaphores)
       philosopherAlgebra = PhilosopherAlgebraInterpreter(forkAlgebra, timeout)
-      _ <-     Console[F].println(s"starting program: $msg")
+      _ <- Console[F].println(s"--- Philosophers begin to dine ---")
       _ <- philosophers.parTraverse(p => philosopherAlgebra.live(p))
     yield Applicative[F].unit
-    
+
   }
