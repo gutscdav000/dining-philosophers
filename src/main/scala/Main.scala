@@ -3,8 +3,6 @@ import cats.effect._
 
 object Main extends IOApp.Simple:
   override def run: IO[Unit] =
-    println("Hello world!")
-    println(msg)
-    IO.unit
+    Program.program[IO]("Running")
 
-def msg = "I was compiled by Scala 3. :)"
+//def msg = "I was compiled by Scala 3. :)"

@@ -16,11 +16,12 @@ package object models:
     def &&(other: Fork): ForkState =
       this.state && other.state
 
-    def toState(newState: ForkState) = copy(state = newState)
+    def withForkState(newState: ForkState) = copy(state = newState)
 
   case class TwoForks(left: Fork, right: Fork)
 
   case class Philosopher(identifier: Int, state: StateOfBeing, forks: TwoForks):
-    def toStateOfBeing(s: StateOfBeing) = copy(state = s)
+    def withStateOfBeing(s: StateOfBeing) = copy(state = s)
 
-  case class InvalidStateException(msg: String) extends RuntimeException(s"InvalidState Reached: $msg")
+  case class InvalidStateException(msg: String)
+      extends RuntimeException(s"InvalidState Reached: $msg")

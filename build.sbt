@@ -18,6 +18,8 @@ lazy val root = project
     )
   )
 
+ThisBuild / scalacOptions -= "-explain"
+
 lazy val enableFatalWarnings: String =
   """set ThisBuild / scalacOptions += "-Xfatal-warnings""""
 

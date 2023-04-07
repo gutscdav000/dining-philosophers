@@ -9,8 +9,8 @@ trait ForkAlgebra[F[_]]:
   def releaseForks(forks: TwoForks): F[Unit]
 
 object ForkAlgebraInterpreter:
-  def apply[F[_]: MonadThrow](semaphores: Map[Int, Semaphore[F]])  = new ForkAlgebra[F]:
-    override def forksAvailable(forks: TwoForks): F[ForkState] = 
+  def apply[F[_]: MonadThrow](semaphores: Map[Int, Semaphore[F]]) = new ForkAlgebra[F]:
+    override def forksAvailable(forks: TwoForks): F[ForkState] =
       (
         forkAvailable(forks.left),
         forkAvailable(forks.right)
@@ -23,16 +23,20 @@ object ForkAlgebraInterpreter:
 
     private def forkAvailable(fork: Fork): F[ForkState] =
       for {
-        forkSemaphore <-   semaphores.get(fork.identifier).liftTo[F](InvalidStateException("fork not found"))
+        forkSemaphore <- semaphores
+          .get(fork.identifier)
+          .liftTo[F](InvalidStateException("fork not found"))
         numAvail <- forkSemaphore.available
-      } yield if(numAvail > 0) ForkState.Available else ForkState.InUse
+      } yield if (numAvail > 0) ForkState.Available else ForkState.InUse
 
     private def aquireFork(fork: Fork): F[Unit] =
-      semaphores.get(fork.identifier)
+      semaphores
+        .get(fork.identifier)
         .liftTo[F](InvalidStateException("fork not found"))
         .flatMap(_.acquireN(1))
 
     private def releaseFork(fork: Fork): F[Unit] =
-      semaphores.get(fork.identifier)
+      semaphores
+        .get(fork.identifier)
         .liftTo[F](InvalidStateException("fork not found"))
         .flatMap(_.releaseN(1))
