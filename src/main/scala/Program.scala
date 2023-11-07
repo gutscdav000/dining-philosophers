@@ -9,7 +9,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.collection.immutable._
 
 object Program:
-  def program[F[_]: Temporal: Parallel](logger: Logger[F]): F[Unit] = {
+def program[F[_]: Temporal: Parallel](logger: Logger[F]): F[Unit] = {
     val forks = Vector(
       Fork(1, ForkState.Available),
       Fork(2, ForkState.Available),
@@ -26,6 +26,12 @@ object Program:
     )
 
     // match each philosopher with a semaphore
+    // Map[Fork, Semaphore[F]] <- because we're talkin forks here
+
+    // move setting up of the semaphore into forkAlgebraInterpretter
+    // so that it doesn't leak out of the algebra
+
+    // use fork traverse instead of philosophers traverse
     val semaphoresF: F[Map[Int, Semaphore[F]]] =
       philosophers.traverse(p => (p.identifier, Semaphore(1)).sequence).map(_.toMap)
     val timeout: FiniteDuration = 1.seconds

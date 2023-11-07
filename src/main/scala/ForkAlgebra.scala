@@ -17,8 +17,12 @@ object ForkAlgebraInterpreter:
           forkAvailable(forks.right)
         ).parMapN((a1: ForkState, a2: ForkState) => a1 && a2)
 
+      // never gives up the left because *> is a monad *> use  parTupled_
+      // add cede in places to force parallelization. between aquiring forks and other
+      // operations that should be parallel
+     // one algebra with cede, one algebra with parTupled_
       override def aquireForks(forks: TwoForks): F[Unit] =
-        aquireFork(forks.left) *> aquireFork(forks.right)
+        aquireFork(forks.left) *> GenSpawn[F].cede  *> aquireFork(forks.right)
       override def releaseForks(forks: TwoForks): F[Unit] =
         releaseFork(forks.left) *> releaseFork(forks.right)
 
@@ -30,6 +34,7 @@ object ForkAlgebraInterpreter:
           numAvail <- forkSemaphore.available
         } yield if (numAvail > 0) ForkState.Available else ForkState.InUse
 
+      // use tryAquire to immediately see if fork is available
       private def aquireFork(fork: Fork): F[Unit] =
         semaphores
           .get(fork.identifier)

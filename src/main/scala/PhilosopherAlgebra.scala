@@ -19,6 +19,9 @@ object PhilosopherAlgebraInterpreter:
       logger: Logger[F],
       timeout: FiniteDuration) =
     new PhilosopherAlgebra[F]:
+        //fork algebra that wraps a fork algebra, to sleep. outter algebra performs sleeping.
+        // also do this for PhilosopherAlgebra... mocking clocks is a pain in the ass
+
       override def doesPonder(philosopher: Philosopher): F[Philosopher] =
         Temporal[F].sleep(timeout) >>
           logger.info(s"Philosopher ${philosopher.identifier} is Hungry") >>
@@ -54,4 +57,5 @@ object PhilosopherAlgebraInterpreter:
           _ = Monad[F].untilM_(canEat(p1))
           p3 <- doesEat(p1)
           p4 <- getsFull(p3)
+
         yield p4

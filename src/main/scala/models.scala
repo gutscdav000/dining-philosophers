@@ -11,8 +11,11 @@ package object models:
     def &&(other: ForkState): ForkState = this match
       case ForkState.Available if other == ForkState.Available => ForkState.Available
       case _ => ForkState.InUse
-
+  // "Forks Don't don't know what their state are. 
+  //Unique, produces a token which is a seriealizable object. instead of identifier as Int
   case class Fork(identifier: Int, state: ForkState):
+      // drop this, this is a programmer error. should only be handled by semaphre
+      // also drop ForkState.
     def &&(other: Fork): ForkState =
       this.state && other.state
 
