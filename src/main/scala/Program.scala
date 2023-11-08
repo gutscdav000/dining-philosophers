@@ -9,13 +9,15 @@ import scala.concurrent.duration.FiniteDuration
 import scala.collection.immutable._
 
 object Program:
-def program[F[_]: Temporal: Parallel](logger: Logger[F]): F[Unit] = {
+  def program[F[_]: Temporal: Parallel](logger: Logger[F]): F[Unit] = {
+
+    //TODO: write a function to create forks and philosophers correctly
     val forks = Vector(
-      Fork(1, ForkState.Available),
-      Fork(2, ForkState.Available),
-      Fork(3, ForkState.Available),
-      Fork(4, ForkState.Available),
-      Fork(5, ForkState.Available)
+      Fork(1),
+      Fork(2),
+      Fork(3),
+      Fork(4),
+      Fork(5)
     )
     val philosophers = Vector(
       Philosopher(1, StateOfBeing.Thinking, TwoForks(forks(0), forks(4))),
@@ -25,15 +27,9 @@ def program[F[_]: Temporal: Parallel](logger: Logger[F]): F[Unit] = {
       Philosopher(5, StateOfBeing.Thinking, TwoForks(forks(4), forks(3)))
     )
 
-    // match each philosopher with a semaphore
-    // Map[Fork, Semaphore[F]] <- because we're talkin forks here
 
-    // move setting up of the semaphore into forkAlgebraInterpretter
-    // so that it doesn't leak out of the algebra
-
-    // use fork traverse instead of philosophers traverse
-    val semaphoresF: F[Map[Int, Semaphore[F]]] =
-      philosophers.traverse(p => (p.identifier, Semaphore(1)).sequence).map(_.toMap)
+    val semaphoresF: F[Map[Fork, Semaphore[F]]] =
+      ForkAlgebraInterpreter.buildSemaphores[F](forks)
     val timeout: FiniteDuration = 1.seconds
 
     for

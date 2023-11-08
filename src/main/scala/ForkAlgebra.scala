@@ -1,6 +1,7 @@
 import models._
 import cats._
 import cats.implicits._
+import cats.effect._
 import cats.effect.std._
 
 trait ForkAlgebra[F[_]]:
@@ -9,40 +10,43 @@ trait ForkAlgebra[F[_]]:
   def releaseForks(forks: TwoForks): F[Unit]
 
 object ForkAlgebraInterpreter:
-  def apply[F[_]: MonadThrow: Parallel](semaphores: Map[Int, Semaphore[F]]) =
+  def buildSemaphores[F[_]: Concurrent](forks: Seq[Fork]): F[Map[Fork, Semaphore[F]]] =
+    forks.flatTraverse { fork =>
+      Semaphore[F](1).map(sem => List(fork -> sem))
+    }.map(_.toMap)
+
+  def apply[F[_]: MonadThrow: Parallel](using GenSpawn[F, Throwable])(semaphores: Map[Fork, Semaphore[F]]): ForkAlgebra[F] =
     new ForkAlgebra[F]:
       override def forksAvailable(forks: TwoForks): F[ForkState] =
         (
           forkAvailable(forks.left),
           forkAvailable(forks.right)
-        ).parMapN((a1: ForkState, a2: ForkState) => a1 && a2)
+        ).parMapN {
+          case (ForkState.Available, ForkState.Available) => ForkState.Available
+          case _ => ForkState.InUse
+        }
 
-      // never gives up the left because *> is a monad *> use  parTupled_
-      // add cede in places to force parallelization. between aquiring forks and other
       // operations that should be parallel
-     // one algebra with cede, one algebra with parTupled_
+      // try this with both cede and parTupled_
       override def aquireForks(forks: TwoForks): F[Unit] =
-        aquireFork(forks.left) *> GenSpawn[F].cede  *> aquireFork(forks.right)
+        aquireFork(forks.left) *>
+        GenSpawn[F].cede  *> //cede is here to ensure we cede the thread
+        aquireFork(forks.right)
       override def releaseForks(forks: TwoForks): F[Unit] =
         releaseFork(forks.left) *> releaseFork(forks.right)
 
       private def forkAvailable(fork: Fork): F[ForkState] =
-        for {
-          forkSemaphore <- semaphores
-            .get(fork.identifier)
-            .liftTo[F](InvalidStateException("fork not found"))
-          numAvail <- forkSemaphore.available
-        } yield if (numAvail > 0) ForkState.Available else ForkState.InUse
+        getSemaphore(fork)
+          .flatMap(semaphore => semaphore.tryAcquireN(1L))
+          .map(bool => if(bool) ForkState.Available else ForkState.InUse)
 
-      // use tryAquire to immediately see if fork is available
-      private def aquireFork(fork: Fork): F[Unit] =
+      private def getSemaphore(fork: Fork): F[Semaphore[F]] =
         semaphores
-          .get(fork.identifier)
+          .get(fork)
           .liftTo[F](InvalidStateException("fork not found"))
-          .flatMap(_.acquireN(1))
+
+      private def aquireFork(fork: Fork): F[Unit] =
+        getSemaphore(fork).flatMap(_.acquireN(1))
 
       private def releaseFork(fork: Fork): F[Unit] =
-        semaphores
-          .get(fork.identifier)
-          .liftTo[F](InvalidStateException("fork not found"))
-          .flatMap(_.releaseN(1))
+        getSemaphore(fork).flatMap(_.releaseN(1))
