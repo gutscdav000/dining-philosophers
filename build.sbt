@@ -2,6 +2,7 @@ val scala3Version = "3.2.2"
 
 val catsEffectVersion = "3.4.8"
 val log4CatsVersion = "2.5.0"
+val munitVersion = "0.7.29"
 
 lazy val root = project
   .in(file("."))
@@ -19,7 +20,10 @@ lazy val root = project
       "ch.qos.logback" % "logback-classic" % "1.2.11",
       "net.logstash.logback" % "logstash-logback-encoder" % "7.3",
       "org.typelevel" %% "munit-cats-effect-3" % "1.0.7" % Test,
-      "org.scalameta" %% "munit" % "0.7.29" % Test
+      "org.scalameta" %% "munit" % munitVersion % Test,
+      "org.scalameta" %% "munit-scalacheck" % "0.7.29" % Test,
+      "org.scalacheck" %% "scalacheck" % "1.17.0" % Test,
+      "io.chrisdavenport" %% "cats-scalacheck" % "0.3.2"
     )
   )
 

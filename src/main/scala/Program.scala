@@ -11,22 +11,7 @@ import scala.collection.immutable._
 object Program:
   def program[F[_]: Temporal: Parallel](logger: Logger[F]): F[Unit] = {
 
-    //TODO: write a function to create forks and philosophers correctly
-    val forks = Vector(
-      Fork(1),
-      Fork(2),
-      Fork(3),
-      Fork(4),
-      Fork(5)
-    )
-    val philosophers = Vector(
-      Philosopher(1, StateOfBeing.Thinking, TwoForks(forks(0), forks(4))),
-      Philosopher(2, StateOfBeing.Thinking, TwoForks(forks(1), forks(0))),
-      Philosopher(3, StateOfBeing.Thinking, TwoForks(forks(2), forks(1))),
-      Philosopher(4, StateOfBeing.Thinking, TwoForks(forks(3), forks(2))),
-      Philosopher(5, StateOfBeing.Thinking, TwoForks(forks(4), forks(3)))
-    )
-
+    val (forks, philosophers) = buildPhilosophers(5)
 
     val semaphoresF: F[Map[Fork, Semaphore[F]]] =
       ForkAlgebraInterpreter.buildSemaphores[F](forks)
@@ -40,4 +25,15 @@ object Program:
       _ <- philosophers.parTraverse(p => philosopherAlgebra.live(p))
     yield Applicative[F].unit
 
+  }
+
+  // this function isn't type safe and can have an out of bounds exception
+  def buildPhilosophers(numPhilosophers: Int): (Seq[Fork], Seq[Philosopher]) = {
+    val forks: Vector[Fork] = (1 to numPhilosophers).map(Fork(_)).toVector
+    val philosophers = (1 to numPhilosophers - 1).map(i =>
+      Philosopher(i, StateOfBeing.Thinking, TwoForks(forks(i - 1), forks(i)))) :+ Philosopher(
+      numPhilosophers,
+      StateOfBeing.Thinking,
+      TwoForks(forks(0), forks(numPhilosophers - 1)))
+    (forks, philosophers)
   }

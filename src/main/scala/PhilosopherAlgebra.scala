@@ -14,29 +14,26 @@ trait PhilosopherAlgebra[F[_]]:
   def live(philosopher: Philosopher): F[Unit]
 
 object PhilosopherAlgebraInterpreter:
-  def base[F[_]: Monad](
-      forkAlg: ForkAlgebra[F]) =
+  def base[F[_]: Monad](forkAlg: ForkAlgebra[F]) =
     new PhilosopherAlgebra[F]:
-        //fork algebra that wraps a fork algebra, to sleep. outter algebra performs sleeping.
-        // also do this for PhilosopherAlgebra... mocking clocks is a pain in the ass
+      // fork algebra that wraps a fork algebra, to sleep. outter algebra performs sleeping.
+      // also do this for PhilosopherAlgebra... mocking clocks is a pain in the ass
 
       override def doesPonder(philosopher: Philosopher): F[Philosopher] =
-          philosopher.withStateOfBeing(StateOfBeing.Hungry).pure[F]
+        philosopher.withStateOfBeing(StateOfBeing.Hungry).pure[F]
 
       override def canEat(philosopher: Philosopher): F[Boolean] =
-        forkAlg
-          .forksAvailable(philosopher.forks)
-          .flatMap {
-            case ForkState.InUse => false.pure[F]
-            case ForkState.Available => true.pure[F]
-          }
+        forkAlg.forksAvailable(philosopher.forks).flatMap {
+          case ForkState.InUse => false.pure[F]
+          case ForkState.Available => true.pure[F]
+        }
 
       override def doesEat(philosopher: Philosopher): F[Philosopher] =
-          forkAlg.aquireForks(philosopher.forks) >>
+        forkAlg.aquireForks(philosopher.forks) >>
           philosopher.withStateOfBeing(StateOfBeing.Eating).pure[F]
 
       override def getsFull(philosopher: Philosopher): F[Philosopher] =
-          forkAlg.releaseForks(philosopher.forks) >>
+        forkAlg.releaseForks(philosopher.forks) >>
           philosopher.withStateOfBeing(StateOfBeing.Thinking).pure[F]
 
       override def live(philosopher: Philosopher): F[Unit] =
@@ -46,8 +43,7 @@ object PhilosopherAlgebraInterpreter:
             _ = Monad[F].untilM_(canEat(p1))
             p3 <- doesEat(p1)
             p4 <- getsFull(p3)
-          yield p4
-        )
+          yield p4)
 
   def apply[F[_]: Temporal](
       forkAlg: ForkAlgebra[F],
@@ -55,11 +51,11 @@ object PhilosopherAlgebraInterpreter:
       timeout: FiniteDuration) =
     new PhilosopherAlgebra[F]:
       val base = PhilosopherAlgebraInterpreter.base[F](forkAlg)
- 
+
       override def doesPonder(philosopher: Philosopher): F[Philosopher] =
         Temporal[F].sleep(timeout) >>
-        logger.info(s"Philosopher ${philosopher.identifier} is Hungry") >>
-        base.doesPonder(philosopher)
+          logger.info(s"Philosopher ${philosopher.identifier} is Hungry") >>
+          base.doesPonder(philosopher)
 
       override def canEat(philosopher: Philosopher): F[Boolean] =
         base
@@ -68,12 +64,11 @@ object PhilosopherAlgebraInterpreter:
 
       override def doesEat(philosopher: Philosopher): F[Philosopher] =
         logger.info(s"Philosopher ${philosopher.identifier} aquiring forks?") >>
-        base
-          .doesEat(philosopher)
-          .flatTap(_ =>
-             logger.info(s"Philosopher ${philosopher.identifier} is Eating") >>
-             Temporal[F].sleep(timeout)
-          )
+          base
+            .doesEat(philosopher)
+            .flatTap(_ =>
+              logger.info(s"Philosopher ${philosopher.identifier} is Eating") >>
+                Temporal[F].sleep(timeout))
 
       override def getsFull(philosopher: Philosopher): F[Philosopher] =
         base
@@ -87,5 +82,4 @@ object PhilosopherAlgebraInterpreter:
             _ = Monad[F].untilM_(canEat(p1))
             p3 <- doesEat(p1)
             p4 <- getsFull(p3)
-          yield p4
-        )
+          yield p4)
