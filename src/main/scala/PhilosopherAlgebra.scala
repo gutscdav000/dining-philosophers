@@ -45,12 +45,13 @@ object PhilosopherAlgebraInterpreter:
             p4 <- getsFull(p3)
           yield p4)
 
+// TODO: pass in base: PhilosopherAlgebraInterpreter into apply
   def apply[F[_]: Temporal](
-      forkAlg: ForkAlgebra[F],
+      base: PhilosopherAlgebra[F],
       logger: Logger[F],
       timeout: FiniteDuration) =
     new PhilosopherAlgebra[F]:
-      val base = PhilosopherAlgebraInterpreter.base[F](forkAlg)
+      //val base = PhilosopherAlgebraInterpreter.base[F](forkAlg)
 
       override def doesPonder(philosopher: Philosopher): F[Philosopher] =
         Temporal[F].sleep(timeout) >>

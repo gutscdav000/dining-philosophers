@@ -13,7 +13,27 @@ import cats.effect.unsafe.IORuntime.global
 class ForkAlgebraTest extends CatsEffectSuite with ScalaCheckSuite {
 
   val genFork: Gen[Fork] = Gen.posNum[Int].map(Fork(_))
-  val genTwoForks: Gen[TwoForks] = (genFork, genFork).mapN(TwoForks(_, _))
+  //val genTwoForks: Gen[TwoForks] = (genFork, genFork).mapN(TwoForks(_, _))
+
+  // this is here to ensure we never have duplicate identifiers
+  def genForks(numForks: Int): Gen[Set[Fork]] =
+    Gen.buildableOfN[Set[Int], Int](numForks, Gen.posNum[Int]).map(_.map(Fork.apply))
+
+  val genTwoForks: Gen[TwoForks] =
+    genForks(2).map(_.toList match {
+      case (head:: tail :: Nil) => TwoForks(head, tail)
+      case _ => throw RuntimeException("shouldn't happen")
+    })
+
+  def genTwoForksN(numTwoForks: Int): Gen[Set[TwoForks]] =
+    genForks(2 * numTwoForks).map(_.toList.sliding(2).map {
+      case (head:: tail :: Nil) => TwoForks(head, tail)
+      case _ => throw RuntimeException("shouldn't happen")
+    }.toSet)
+
+
+  //TODO:philosopher algebra testing for live method: use TestControl
+  //https://typelevel.org/cats-effect/api/3.x/cats/effect/testkit/TestControl.html
 
   //TODO: test fork availability
   //TODO: test that aquire & release round trips
@@ -32,14 +52,28 @@ class ForkAlgebraTest extends CatsEffectSuite with ScalaCheckSuite {
           .flatMap(_.acquireN(1)) >>
           forkAlgebra
           .getSemaphore(twoForks.right)
-          .flatTap(s => IO(println("C")) >> IO.pure(s))
           .flatMap(_.acquireN(1)) >>
-          IO(println("D")) >>
           forkAlgebra.forksAvailable(twoForks).map(forkState =>
             assertEquals(forkState, ForkState.InUse)
-          ) >> IO(println("E"))
+          )
       ).unsafeRunSync()
-      println("4")
+    }
+  }
+
+  property("fork is available") {
+    forAll(genTwoForks) { twoForks =>
+
+      val stateMap: IO[Map[Fork, Semaphore[IO]]] =
+        buildSemaphores[IO](Seq(twoForks.left, twoForks.right))
+
+      val forkAlgebraF: IO[ForkAlgebra[IO]] =
+        stateMap.map(ForkAlgebraInterpreter[IO](_))
+
+      forkAlgebraF.flatMap(forkAlgebra =>
+        forkAlgebra.forksAvailable(twoForks).map(forkState =>
+          assertEquals(forkState, ForkState.Available)
+        )
+      ).unsafeRunSync()
     }
   }
 }

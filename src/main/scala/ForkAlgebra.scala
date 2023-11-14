@@ -40,7 +40,7 @@ object ForkAlgebraInterpreter:
           .flatMap(semaphore => semaphore.tryAcquireN(1L))
           .map(bool => if (bool) ForkState.Available else ForkState.InUse)
 
-      //TODO: should this be package private?
+      // TODO: should this be package private?
       override def getSemaphore(fork: Fork): F[Semaphore[F]] =
         semaphores.get(fork).liftTo[F](InvalidStateException("fork not found"))
 

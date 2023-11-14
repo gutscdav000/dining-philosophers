@@ -20,7 +20,8 @@ object Program:
     for
       semaphores <- semaphoresF
       forkAlgebra = ForkAlgebraInterpreter(semaphores)
-      philosopherAlgebra = PhilosopherAlgebraInterpreter(forkAlgebra, logger, timeout)
+      base = PhilosopherAlgebraInterpreter.base(forkAlgebra)
+      philosopherAlgebra = PhilosopherAlgebraInterpreter(base, logger, timeout)
       _ <- logger.info(s"--- Philosophers begin to dine ---")
       _ <- philosophers.parTraverse(p => philosopherAlgebra.live(p))
     yield Applicative[F].unit
