@@ -10,32 +10,31 @@ import scala.collection.immutable._
 
 object Program:
   def program[F[_]: Temporal: Parallel](logger: Logger[F]): F[Unit] = {
-    val forks = Vector(
-      Fork(1, ForkState.Available),
-      Fork(2, ForkState.Available),
-      Fork(3, ForkState.Available),
-      Fork(4, ForkState.Available),
-      Fork(5, ForkState.Available)
-    )
-    val philosophers = Vector(
-      Philosopher(1, StateOfBeing.Thinking, TwoForks(forks(0), forks(4))),
-      Philosopher(2, StateOfBeing.Thinking, TwoForks(forks(1), forks(0))),
-      Philosopher(3, StateOfBeing.Thinking, TwoForks(forks(2), forks(1))),
-      Philosopher(4, StateOfBeing.Thinking, TwoForks(forks(3), forks(2))),
-      Philosopher(5, StateOfBeing.Thinking, TwoForks(forks(4), forks(3)))
-    )
 
-    // match each philosopher with a semaphore
-    val semaphoresF: F[Map[Int, Semaphore[F]]] =
-      philosophers.traverse(p => (p.identifier, Semaphore(1)).sequence).map(_.toMap)
+    val (forks, philosophers) = buildPhilosophers(5)
+
+    val semaphoresF: F[Map[Fork, Semaphore[F]]] =
+      ForkAlgebraInterpreter.buildSemaphores[F](forks)
     val timeout: FiniteDuration = 1.seconds
 
     for
       semaphores <- semaphoresF
       forkAlgebra = ForkAlgebraInterpreter(semaphores)
-      philosopherAlgebra = PhilosopherAlgebraInterpreter(forkAlgebra, logger, timeout)
+      base = PhilosopherAlgebraInterpreter.base(forkAlgebra)
+      philosopherAlgebra = PhilosopherAlgebraInterpreter(base, logger, timeout)
       _ <- logger.info(s"--- Philosophers begin to dine ---")
       _ <- philosophers.parTraverse(p => philosopherAlgebra.live(p))
     yield Applicative[F].unit
 
+  }
+
+  // this function isn't type safe and can have an out of bounds exception
+  def buildPhilosophers(numPhilosophers: Int): (Seq[Fork], Seq[Philosopher]) = {
+    val forks: Vector[Fork] = (1 to numPhilosophers).map(Fork(_)).toVector
+    val philosophers = (1 to numPhilosophers - 1).map(i =>
+      Philosopher(i, StateOfBeing.Thinking, TwoForks(forks(i - 1), forks(i)))) :+ Philosopher(
+      numPhilosophers,
+      StateOfBeing.Thinking,
+      TwoForks(forks(0), forks(numPhilosophers - 1)))
+    (forks, philosophers)
   }

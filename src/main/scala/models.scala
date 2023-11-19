@@ -8,15 +8,7 @@ package object models:
     case Available
     case InUse
 
-    def &&(other: ForkState): ForkState = this match
-      case ForkState.Available if other == ForkState.Available => ForkState.Available
-      case _ => ForkState.InUse
-
-  case class Fork(identifier: Int, state: ForkState):
-    def &&(other: Fork): ForkState =
-      this.state && other.state
-
-    def withForkState(newState: ForkState) = copy(state = newState)
+  case class Fork(identifier: Int)
 
   case class TwoForks(left: Fork, right: Fork)
 
